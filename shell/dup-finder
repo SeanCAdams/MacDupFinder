@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# A shell script to find the duplicate files on a system and store them in a sqlite DB.
+#
+# Sean Adams
+#
+
+DB_LOCATION="$HOME/dup-files.db"
+SQL_CMD="sqlite3 $DB_LOCATION"
+
+function createDB () {
+  $SQL_CMD 'create table files (name TEXT, hash TEXT);'
+  $SQL_CMD 'create unique index files_name_idx on files (name);'
+  $SQL_CMD 'create index files_hash_idx ON files (hash);'
+}
+
+function deleteDB () {
+  rm -f $DB_LOCATION
+}
+
+if [ -e $DB_LOCATION ]; then
+  deleteDB
+fi
+
+createDB
+
+OLD_DIR="/"
+echo "$OLD_DIR"
+
+find / -type f -print | while read f; do
+  CUR_DIR=`dirname $f`
+  HASH=`shasum -a 512 $f`
+
+  $SQL_CMD "insert into files (name, hash) values ('$f', '$HASH');"
+
+  if [ "$OLD_DIR" != "$CUR_DIR" ]; then
+    OLD_DIR="$CUR_DIR"
+    echo "$CUR_DIR"
+  fi
+done
